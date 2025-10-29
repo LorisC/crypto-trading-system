@@ -209,7 +209,12 @@ export class IndicatorValue {
     return `${this.name}: {${valuesStr}}`;
   }
 
-  toJSON() {
+  toJSON(): {
+    name: string;
+    timestamp: string;
+    value?: number;
+    values?: Record<string, number>;
+  } {
     return {
       name: this.name,
       timestamp: this.timestamp.toJSON(),
