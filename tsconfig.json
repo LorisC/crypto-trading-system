@@ -19,7 +19,9 @@
     "strictNullChecks": true,
     "strictPropertyInitialization": true,
     "target": "ES2023",
+    "types": ["node", "vitest/globals"],
     "paths": {
+      "@/*": ["src/*"],
       "@application/*": ["src/application/*"],
       "@domain/*": ["src/domain/*"],
       "@infrastructure/*": ["src/infrastructure/*"],

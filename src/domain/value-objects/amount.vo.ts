@@ -3,6 +3,7 @@ import {
   InvalidOperationException,
 } from '@domain/exceptions';
 import { Asset } from '@domain/value-objects/asset.vo';
+import { Decimal } from 'decimal.js';
 
 /**
  * Represents an amount of a specific asset (quantity + asset)
@@ -19,7 +20,7 @@ import { Asset } from '@domain/value-objects/asset.vo';
  */
 export class Amount {
   private constructor(
-    public readonly value: number,
+    public readonly _value: Decimal,
     public readonly asset: Asset,
   ) {}
 
@@ -27,8 +28,9 @@ export class Amount {
   // Creation
   // ============================================
 
-  static from(value: number, asset: Asset): Amount {
-    if (!Number.isFinite(value)) {
+  static from(value: number | string, asset: Asset): Amount {
+    const decimal = new Decimal(value);
+    if (!decimal.isFinite()) {
       throw new InvalidValueObjectException(
         'Amount',
         'Value must be a finite number',
@@ -36,11 +38,15 @@ export class Amount {
       );
     }
 
-    return new Amount(value, asset);
+    return new Amount(decimal, asset);
   }
 
   static zero(asset: Asset): Amount {
-    return new Amount(0, asset);
+    return new Amount(new Decimal(0), asset);
+  }
+
+  get value(): number {
+    return this._value.toNumber();
   }
 
   // ============================================
@@ -54,7 +60,7 @@ export class Amount {
 
   subtract(other: Amount): Amount {
     this.assertSameAsset(other);
-    return new Amount(this.value - other.value, this.asset);
+    return Amount.from(this.value - other.value, this.asset);
   }
 
   /**
@@ -64,7 +70,7 @@ export class Amount {
   subtractOrZero(other: Amount): Amount {
     this.assertSameAsset(other);
     const result = this.value - other.value;
-    return new Amount(Math.max(0, result), this.asset);
+    return Amount.from(Math.max(0, result), this.asset);
   }
 
   multiply(factor: number): Amount {
@@ -75,7 +81,7 @@ export class Amount {
         factor,
       );
     }
-    return new Amount(this.value * factor, this.asset);
+    return Amount.from(this.value * factor, this.asset);
   }
 
   divide(divisor: number): Amount {
@@ -92,7 +98,7 @@ export class Amount {
         divisor,
       );
     }
-    return new Amount(this.value / divisor, this.asset);
+    return Amount.from(this.value / divisor, this.asset);
   }
 
   /**
@@ -100,7 +106,7 @@ export class Amount {
    * Example: -100 USDT → 100 USDT
    */
   abs(): Amount {
-    return new Amount(Math.abs(this.value), this.asset);
+    return Amount.from(Math.abs(this.value), this.asset);
   }
 
   /**
@@ -108,7 +114,7 @@ export class Amount {
    * Example: 100 USDT → -100 USDT
    */
   negate(): Amount {
-    return new Amount(-this.value, this.asset);
+    return Amount.from(-this.value, this.asset);
   }
 
   /**

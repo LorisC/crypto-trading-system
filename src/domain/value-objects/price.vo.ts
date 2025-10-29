@@ -5,6 +5,7 @@ import {
 } from '@domain/exceptions';
 import { Percentage } from '@domain/value-objects/percentage.vo';
 import { Amount } from '@domain/value-objects/amount.vo';
+import { Decimal } from 'decimal.js';
 
 /**
  * Represents a price in a specific trading pair
@@ -28,7 +29,7 @@ import { Amount } from '@domain/value-objects/amount.vo';
  */
 export class Price {
   private constructor(
-    public readonly value: number,
+    public readonly _value: Decimal,
     public readonly pair: TradingPair,
   ) {}
 
@@ -36,8 +37,10 @@ export class Price {
   // Creation
   // ============================================
 
-  static from(value: number, pair: TradingPair): Price {
-    if (!Number.isFinite(value)) {
+  static from(value: number | string, pair: TradingPair): Price {
+    const decimal = new Decimal(value);
+
+    if (!decimal.isFinite()) {
       throw new InvalidValueObjectException(
         'Price',
         'Value must be a finite number',
@@ -45,7 +48,7 @@ export class Price {
       );
     }
 
-    if (value <= 0) {
+    if (decimal.lte(0)) {
       throw new InvalidValueObjectException(
         'Price',
         'Value must be strictly positive',
@@ -53,7 +56,15 @@ export class Price {
       );
     }
 
-    return new Price(value, pair);
+    return new Price(decimal, pair);
+  }
+
+  get value(): number {
+    return this._value.toNumber();
+  }
+
+  get valueDecimal(): Decimal {
+    return this._value;
   }
 
   // ============================================
@@ -135,17 +146,40 @@ export class Price {
    * Example: 100 USDT/BTC + 10% = 110 USDT/BTC
    */
   applyPercentageChange(percentage: Percentage): Price {
-    const multiplier = 1 + percentage.toRatio();
-    return this.multiplyBy(multiplier);
+    const multiplier = new Decimal(1).plus(percentage.toRatio());
+    const newValue = this._value.times(multiplier);
+    return new Price(newValue, this.pair);
   }
 
   /**
-   * Calculate percentage change from another price
-   * Example: 110 vs 100 = +10%
+   * Calculate percentage change TO another price (from this price)
+   * Formula: ((newPrice - thisPrice) / thisPrice) * 100
+   *
+   * Example:
+   *   $50k -> $55k = +10% increase
+   *   $55k -> $50k = -9.09% decrease
    */
-  percentageChangeFrom(other: Price): Percentage {
-    this.assertSamePair(other);
-    const change = ((this.value - other.value) / other.value) * 100;
+  percentageChangeTo(newPrice: Price): Percentage {
+    this.assertSamePair(newPrice);
+
+    const diff = newPrice._value.minus(this._value);
+    const ratio = diff.div(this._value);
+    const percent = ratio.times(100);
+
+    return Percentage.from(percent.toNumber());
+  }
+
+  /**
+   * Calculate percentage change FROM another price (to this price)
+   * Formula: ((thisPrice - oldPrice) / oldPrice) * 100
+   *
+   * Example:
+   *   this=$55k, old=$50k = +10% increase
+   *   this=$50k, old=$55k = -9.09% decrease
+   */
+  percentageChangeFrom(oldPrice: Price): Percentage {
+    this.assertSamePair(oldPrice);
+    const change = ((this.value - oldPrice.value) / oldPrice.value) * 100;
     return Percentage.from(change, { allowAbove100: true });
   }
 
@@ -332,7 +366,7 @@ export class Price {
 
   private assertSamePair(other: Price): void {
     if (!this.pair.equals(other.pair)) {
-      throw new InvalidOperationException(
+      throw new InvalidValueObjectException(
         'Price operation',
         `Cannot operate on prices from different pairs: ${this.pair.toSymbol()} vs ${other.pair.toSymbol()}`,
       );
@@ -348,11 +382,11 @@ export class Price {
       decimals !== undefined
         ? this.value.toFixed(decimals)
         : this.value.toString();
-    return `${valueStr} ${this.pair.toSymbol()}`;
+    return `${valueStr}`;
   }
 
   toString(): string {
-    return this.format();
+    return `${this.format()} ${this.pair.toSymbol()}`;
   }
 
   toJSON() {

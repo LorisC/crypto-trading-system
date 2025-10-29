@@ -5,7 +5,6 @@ import { Timestamp } from '@domain/value-objects/timestamp.vo';
 import { Amount } from '@domain/value-objects/amount.vo';
 import { OrderStatus } from '@domain/enum/order-status.enum';
 import {
-  DomainException,
   InvalidStateTransitionException,
   OrderValidationException,
 } from '@domain/exceptions';
